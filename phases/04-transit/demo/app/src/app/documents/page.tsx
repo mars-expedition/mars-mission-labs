@@ -1,8 +1,19 @@
 "use client";
 import { useEffect, useState } from 'react';
 
+type DocumentChunk = {
+  id: string;
+  content?: string;
+  metadata?: {
+    title?: string;
+    source?: string;
+    page?: string | number;
+    line?: string | number;
+  };
+};
+
 export default function DocumentsPage() {
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<DocumentChunk[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -62,7 +73,7 @@ export default function DocumentsPage() {
             </h4>
             
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.5, flex: 1, marginBottom: '1rem' }}>
-              "{doc.content}"
+              &quot;{doc.content}&quot;
             </p>
             
             <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', marginTop: 'auto' }}>

@@ -111,6 +111,7 @@ Endpoints principales:
 - `GET /api/documents`: lista chunks del indice.
 - `POST /api/ask/local`: responde con Agent Framework local y Azure AI Search.
 - `POST /api/ask/foundry`: responde con agente nativo de Azure AI Foundry.
+- `POST /api/ask/foundry/stream`: transmite la respuesta del agente con Server-Sent Events y devuelve chunks enriquecidos con scores de Azure AI Search.
 
 ### Levantar frontend
 

@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import json
@@ -40,6 +41,22 @@ from azure.search.documents import SearchClient
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_INDEX = os.getenv("AZURE_SEARCH_INDEX")
 FOUNDRY_AGENT_NAME = os.getenv("FOUNDRY_AGENT_NAME", "marsrag-native-agent")
+
+
+def _first_present(*values):
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def _coerce_float(value):
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _extract_json_object(text: str) -> dict | None:
@@ -83,18 +100,273 @@ def _normalize_agent_chunks(raw_chunks) -> list[dict]:
         title = metadata.get("title") or raw.get("title") or "Documento recuperado de la base de datos"
         page = metadata.get("page") or metadata.get("page_number") or raw.get("page") or raw.get("page_number")
         content = raw.get("content") or raw.get("page_content") or raw.get("text") or raw.get("snippet") or ""
+        score = _coerce_float(
+            _first_present(
+                raw.get("score"),
+                metadata.get("score"),
+                raw.get("@search.reranker_score"),
+                raw.get("@search.score"),
+            )
+        )
+        score_type = _first_present(
+            raw.get("score_type"),
+            metadata.get("score_type"),
+            "reranker_score" if raw.get("@search.reranker_score") is not None else None,
+            "search_score" if raw.get("@search.score") is not None else None,
+        )
 
-        chunks.append({
-            "score": raw.get("score"),
+        chunk = {
+            "score": score,
             "content": content,
             "metadata": {
                 "title": title,
                 "source": source,
                 "page": page,
             },
-        })
+        }
+        if score_type:
+            chunk["score_type"] = score_type
+        chunks.append(chunk)
 
     return chunks
+
+
+def _chunk_match_key(chunk: dict) -> tuple[str, str, str]:
+    metadata = chunk.get("metadata") if isinstance(chunk.get("metadata"), dict) else {}
+    title = str(metadata.get("title") or chunk.get("title") or "").strip().lower()
+    source = str(metadata.get("source") or metadata.get("source_url") or chunk.get("source") or chunk.get("source_url") or "").strip().lower()
+    page = str(metadata.get("page") or metadata.get("page_number") or chunk.get("page") or chunk.get("page_number") or "").strip().lower()
+    return title, source, page
+
+
+def _content_matches(left: dict, right: dict) -> bool:
+    left_text = str(left.get("content") or "").strip().lower()
+    right_text = str(right.get("content") or "").strip().lower()
+    if not left_text or not right_text:
+        return False
+    left_sample = left_text[:160]
+    right_sample = right_text[:160]
+    return left_sample in right_text or right_sample in left_text
+
+
+def _merge_chunk_scores(agent_chunks: list[dict], scored_chunks: list[dict]) -> list[dict]:
+    if not scored_chunks:
+        return agent_chunks
+    if not agent_chunks:
+        return scored_chunks
+
+    scored_by_key = {
+        _chunk_match_key(chunk): chunk
+        for chunk in scored_chunks
+        if any(_chunk_match_key(chunk))
+    }
+    used_ids = set()
+    merged = []
+
+    for chunk in agent_chunks:
+        merged_chunk = {
+            **chunk,
+            "metadata": {
+                **(chunk.get("metadata") if isinstance(chunk.get("metadata"), dict) else {})
+            },
+        }
+
+        if _coerce_float(merged_chunk.get("score")) is not None:
+            merged_chunk["score"] = _coerce_float(merged_chunk.get("score"))
+            merged.append(merged_chunk)
+            continue
+
+        match = scored_by_key.get(_chunk_match_key(merged_chunk))
+        if match is None:
+            match = next(
+                (
+                    candidate
+                    for candidate in scored_chunks
+                    if id(candidate) not in used_ids and _content_matches(merged_chunk, candidate)
+                ),
+                None,
+            )
+
+        if match:
+            used_ids.add(id(match))
+            merged_chunk["score"] = match.get("score")
+            merged_chunk["score_type"] = match.get("score_type")
+            merged_chunk["rank"] = match.get("rank")
+            if not merged_chunk.get("content"):
+                merged_chunk["content"] = match.get("content", "")
+
+            match_metadata = match.get("metadata") if isinstance(match.get("metadata"), dict) else {}
+            for key in ("title", "source", "page"):
+                if not merged_chunk["metadata"].get(key):
+                    merged_chunk["metadata"][key] = match_metadata.get(key)
+
+        merged.append(merged_chunk)
+
+    return merged
+
+
+def _retrieve_scored_chunks(query: str, top_k: int = 3) -> list[dict]:
+    if not AZURE_SEARCH_ENDPOINT or not AZURE_SEARCH_INDEX:
+        return []
+
+    top_k = max(1, min(top_k or 3, 8))
+    search_client = SearchClient(
+        endpoint=AZURE_SEARCH_ENDPOINT,
+        index_name=AZURE_SEARCH_INDEX,
+        credential=DefaultAzureCredential(),
+    )
+    select_fields = ["id", "content", "title", "source_url", "page_number"]
+
+    try:
+        try:
+            from azure.search.documents.models import QueryType
+
+            results = search_client.search(
+                search_text=query,
+                select=select_fields,
+                query_type=QueryType.SEMANTIC,
+                semantic_configuration_name="rag-semantic-config",
+                top=top_k,
+            )
+        except Exception:
+            results = search_client.search(
+                search_text=query,
+                select=select_fields,
+                top=top_k,
+            )
+
+        chunks = []
+        for rank, item in enumerate(results, start=1):
+            reranker_score = item.get("@search.reranker_score")
+            search_score = item.get("@search.score")
+            score = _coerce_float(_first_present(reranker_score, search_score))
+            score_type = "reranker_score" if reranker_score is not None else "search_score"
+
+            chunks.append({
+                "rank": rank,
+                "score": score,
+                "score_type": score_type,
+                "content": (item.get("content") or "")[:300] + "...",
+                "metadata": {
+                    "title": item.get("title"),
+                    "source": item.get("source_url"),
+                    "page": item.get("page_number"),
+                },
+            })
+        return chunks
+    except Exception:
+        traceback.print_exc()
+        return []
+    finally:
+        search_client.close()
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+class JsonAnswerDeltaExtractor:
+    def __init__(self):
+        self.buffer = ""
+        self.read_pos = 0
+        self.answer_started = False
+        self.answer_done = False
+        self.escape = False
+        self.unicode_buffer = None
+
+    def feed(self, text: str) -> str:
+        if self.answer_done or not text:
+            return ""
+
+        self.buffer += text
+        if not self.answer_started:
+            import re
+
+            match = re.search(r'"answer"\s*:\s*"', self.buffer)
+            if not match:
+                return ""
+            self.answer_started = True
+            self.read_pos = match.end()
+
+        emitted = []
+        while self.read_pos < len(self.buffer) and not self.answer_done:
+            char = self.buffer[self.read_pos]
+            self.read_pos += 1
+
+            if self.unicode_buffer is not None:
+                self.unicode_buffer += char
+                if len(self.unicode_buffer) == 4:
+                    try:
+                        emitted.append(chr(int(self.unicode_buffer, 16)))
+                    except ValueError:
+                        emitted.append("\\u" + self.unicode_buffer)
+                    self.unicode_buffer = None
+                    self.escape = False
+                continue
+
+            if self.escape:
+                if char == "u":
+                    self.unicode_buffer = ""
+                    continue
+
+                emitted.append({
+                    '"': '"',
+                    "\\": "\\",
+                    "/": "/",
+                    "b": "\b",
+                    "f": "\f",
+                    "n": "\n",
+                    "r": "\r",
+                    "t": "\t",
+                }.get(char, char))
+                self.escape = False
+                continue
+
+            if char == "\\":
+                self.escape = True
+                continue
+
+            if char == '"':
+                self.answer_done = True
+                break
+
+            emitted.append(char)
+
+        return "".join(emitted)
+
+
+def _stream_event_type(event) -> str:
+    if isinstance(event, dict):
+        return event.get("type") or event.get("event") or ""
+    return getattr(event, "type", None) or getattr(event, "event", None) or ""
+
+
+def _stream_event_delta(event) -> str:
+    event_type = _stream_event_type(event)
+    if event_type and "delta" not in event_type:
+        return ""
+
+    if isinstance(event, dict):
+        delta = event.get("delta") or event.get("text")
+    else:
+        delta = getattr(event, "delta", None) or getattr(event, "text", None)
+
+    return delta if isinstance(delta, str) else ""
+
+
+def _response_output_text(response) -> str:
+    if response is None:
+        return ""
+    if isinstance(response, dict):
+        return response.get("output_text") or ""
+    return getattr(response, "output_text", None) or ""
+
+
+def _completed_response_from_event(event):
+    if isinstance(event, dict):
+        return event.get("response")
+    return getattr(event, "response", None)
+
 
 @app.get("/api/documents")
 def get_documents():
@@ -240,23 +512,149 @@ def ask_foundry_agent(req: QueryRequest):
             )
             
             raw_text = response.output_text or ""
+            scored_chunks = _retrieve_scored_chunks(req.query, req.top_k)
             payload = _extract_json_object(raw_text)
             if payload:
                 answer = payload.get("answer") or raw_text
                 context_docs = _normalize_agent_chunks(payload.get("chunks") or payload.get("context"))
+                context_docs = _merge_chunk_scores(context_docs, scored_chunks)
                 return {
                     "answer": answer,
                     "context": context_docs,
                     "agent": FOUNDRY_AGENT_NAME,
-                    "context_source": "foundry_agent_json",
+                    "context_source": "foundry_agent_json_with_search_scores",
                 }
 
             return {
                 "answer": raw_text,
-                "context": [],
+                "context": scored_chunks,
                 "agent": FOUNDRY_AGENT_NAME,
-                "context_source": "foundry_agent_text"
+                "context_source": "azure_search_score_fallback"
             }
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ask/foundry/stream")
+def ask_foundry_agent_stream(req: QueryRequest):
+    """Streams Foundry agent responses as Server-Sent Events and enriches chunks with Search scores."""
+
+    def generate():
+        scored_chunks = []
+        try:
+            from azure.identity import DefaultAzureCredential
+            from azure.ai.projects import AIProjectClient
+
+            PROJECT_ENDPOINT = os.getenv("FOUNDRY_PROJECT_ENDPOINT") or os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT")
+
+            scored_chunks = _retrieve_scored_chunks(req.query, req.top_k)
+            if scored_chunks:
+                yield _sse("context", {
+                    "context": scored_chunks,
+                    "context_source": "azure_search_score_fallback",
+                })
+
+            credential = DefaultAzureCredential()
+            project_client = AIProjectClient(endpoint=PROJECT_ENDPOINT, credential=credential)
+            raw_parts = []
+            pending = ""
+            stream_mode = None
+            json_answer = JsonAnswerDeltaExtractor()
+            answer_done_sent = False
+
+            with project_client:
+                openai_client = project_client.get_openai_client()
+                conversation = openai_client.conversations.create()
+                create_kwargs = {
+                    "conversation": conversation.id,
+                    "input": req.query,
+                    "extra_body": {
+                        "agent_reference": {
+                            "name": FOUNDRY_AGENT_NAME,
+                            "type": "agent_reference",
+                        }
+                    },
+                }
+
+                try:
+                    stream = openai_client.responses.create(**create_kwargs, stream=True)
+                    for event in stream:
+                        delta = _stream_event_delta(event)
+                        if delta:
+                            raw_parts.append(delta)
+                            pending += delta
+
+                            if stream_mode is None:
+                                stripped = pending.lstrip()
+                                if not stripped:
+                                    continue
+                                if stripped.startswith("{") or stripped.startswith("```"):
+                                    stream_mode = "json"
+                                    answer_delta = json_answer.feed(pending)
+                                    pending = ""
+                                    if answer_delta:
+                                        yield _sse("delta", {"delta": answer_delta})
+                                    if json_answer.answer_done and not answer_done_sent:
+                                        answer_done_sent = True
+                                        yield _sse("answer_done", {"context": scored_chunks})
+                                else:
+                                    stream_mode = "plain"
+                                    yield _sse("delta", {"delta": pending})
+                                    pending = ""
+                            elif stream_mode == "json":
+                                answer_delta = json_answer.feed(delta)
+                                if answer_delta:
+                                    yield _sse("delta", {"delta": answer_delta})
+                                if json_answer.answer_done and not answer_done_sent:
+                                    answer_done_sent = True
+                                    yield _sse("answer_done", {"context": scored_chunks})
+                            else:
+                                yield _sse("delta", {"delta": delta})
+
+                        completed_text = _response_output_text(_completed_response_from_event(event))
+                        if completed_text and not raw_parts:
+                            raw_parts.append(completed_text)
+                except Exception:
+                    response = openai_client.responses.create(**create_kwargs)
+                    raw_text = _response_output_text(response)
+                    raw_parts = [raw_text]
+
+            raw_text = "".join(raw_parts)
+            payload = _extract_json_object(raw_text)
+            if payload:
+                answer = payload.get("answer") or raw_text
+                context_docs = _normalize_agent_chunks(payload.get("chunks") or payload.get("context"))
+                context_docs = _merge_chunk_scores(context_docs, scored_chunks)
+                if not answer_done_sent:
+                    answer_done_sent = True
+                    yield _sse("answer_done", {"context": context_docs})
+                yield _sse("final", {
+                    "answer": answer,
+                    "context": context_docs,
+                    "agent": FOUNDRY_AGENT_NAME,
+                    "context_source": "foundry_agent_json_with_search_scores",
+                })
+            else:
+                if not answer_done_sent:
+                    answer_done_sent = True
+                    yield _sse("answer_done", {"context": scored_chunks})
+                yield _sse("final", {
+                    "answer": raw_text,
+                    "context": scored_chunks,
+                    "agent": FOUNDRY_AGENT_NAME,
+                    "context_source": "azure_search_score_fallback",
+                })
+        except Exception as e:
+            traceback.print_exc()
+            yield _sse("error", {"detail": str(e)})
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
