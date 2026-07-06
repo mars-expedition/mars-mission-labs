@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Annotated
 from dotenv import load_dotenv
 from pydantic import Field
@@ -9,12 +10,18 @@ from agent_framework import tool
 from agent_framework.openai import OpenAIChatClient, OpenAIEmbeddingClient
 from azure.search.documents.aio import SearchClient
 
-load_dotenv()
+SCRIPT_DIR = Path(__file__).resolve().parent
+PHASE_DIR = SCRIPT_DIR.parent
+load_dotenv(PHASE_DIR / ".env")
 
 AZURE_OPENAI_ENDPOINT = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/")
 CHAT_MODEL = os.environ["AZURE_OPENAI_CHAT_MODEL"]
 EMBEDDING_MODEL = os.environ["AZURE_OPENAI_EMBEDDING_MODEL"]
-API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview")
+CHAT_API_VERSION = os.getenv("AZURE_OPENAI_RESPONSES_API_VERSION") or None
+EMBEDDING_API_VERSION = os.getenv(
+    "AZURE_OPENAI_EMBEDDING_API_VERSION",
+    os.getenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview"),
+)
 
 AZURE_SEARCH_ENDPOINT = os.environ["AZURE_SEARCH_ENDPOINT"].rstrip("/")
 AZURE_SEARCH_INDEX = os.environ["AZURE_SEARCH_INDEX"]
@@ -22,8 +29,8 @@ AZURE_SEARCH_INDEX = os.environ["AZURE_SEARCH_INDEX"]
 credential = DefaultAzureCredential()
 
 # 1. Clientes Base
-chat_client = OpenAIChatClient(model=CHAT_MODEL, azure_endpoint=AZURE_OPENAI_ENDPOINT, api_version=API_VERSION, credential=credential)
-embedding_client = OpenAIEmbeddingClient(model=EMBEDDING_MODEL, azure_endpoint=AZURE_OPENAI_ENDPOINT, api_version=API_VERSION, credential=credential)
+chat_client = OpenAIChatClient(model=CHAT_MODEL, azure_endpoint=AZURE_OPENAI_ENDPOINT, api_version=CHAT_API_VERSION, credential=credential)
+embedding_client = OpenAIEmbeddingClient(model=EMBEDDING_MODEL, azure_endpoint=AZURE_OPENAI_ENDPOINT, api_version=EMBEDDING_API_VERSION, credential=credential)
 search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=AZURE_SEARCH_INDEX, credential=credential)
 
 # 2. Creamos la función que buscará la información en Azure Search (Rerank Habilitado)

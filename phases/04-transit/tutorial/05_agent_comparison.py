@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Annotated
 from dotenv import load_dotenv
 from pydantic import Field
@@ -8,24 +9,36 @@ from agent_framework import tool
 from agent_framework.openai import OpenAIChatClient, OpenAIEmbeddingClient
 from azure.search.documents.aio import SearchClient
 
-load_dotenv()
+SCRIPT_DIR = Path(__file__).resolve().parent
+PHASE_DIR = SCRIPT_DIR.parent
+load_dotenv(PHASE_DIR / ".env")
 
 AZURE_OPENAI_ENDPOINT = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/")
 CHAT_MODEL = os.environ["AZURE_OPENAI_CHAT_MODEL"]
 EMBEDDING_MODEL = os.environ["AZURE_OPENAI_EMBEDDING_MODEL"]
-API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview")
+CHAT_API_VERSION = os.getenv("AZURE_OPENAI_RESPONSES_API_VERSION") or None
+EMBEDDING_API_VERSION = os.getenv(
+    "AZURE_OPENAI_EMBEDDING_API_VERSION",
+    os.getenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview"),
+)
 AZURE_SEARCH_ENDPOINT = os.environ["AZURE_SEARCH_ENDPOINT"].rstrip("/")
 AZURE_SEARCH_INDEX = os.environ["AZURE_SEARCH_INDEX"]
 
 credential = DefaultAzureCredential()
-chat_client = OpenAIChatClient(model=CHAT_MODEL, azure_endpoint=AZURE_OPENAI_ENDPOINT, api_version=API_VERSION, credential=credential)
-embedding_client = OpenAIEmbeddingClient(model=EMBEDDING_MODEL, azure_endpoint=AZURE_OPENAI_ENDPOINT, api_version=API_VERSION, credential=credential)
+chat_client = OpenAIChatClient(model=CHAT_MODEL, azure_endpoint=AZURE_OPENAI_ENDPOINT, api_version=CHAT_API_VERSION, credential=credential)
+embedding_client = OpenAIEmbeddingClient(model=EMBEDDING_MODEL, azure_endpoint=AZURE_OPENAI_ENDPOINT, api_version=EMBEDDING_API_VERSION, credential=credential)
 search_client = SearchClient(endpoint=AZURE_SEARCH_ENDPOINT, index_name=AZURE_SEARCH_INDEX, credential=credential)
 
-async def recuperar_conocimiento(query: str, use_rerank: bool, top_k: int = 5) -> str:
+GROUNDING_INSTRUCTIONS = (
+    "Eres un experto RAG en misiones a Marte. Usa tu herramienta de búsqueda. "
+    "Responde ÚNICAMENTE con la evidencia recuperada. "
+    "Si la evidencia no menciona explícitamente la respuesta, dilo y no uses conocimiento externo."
+)
+
+async def recuperar_conocimiento(query: str, use_rerank: bool, top_k: int = 3) -> str:
     emb_resp = await embedding_client.get_embeddings(values=[query])
     vector = emb_resp[0].vector
-    vector_query = VectorizedQuery(vector=vector, k_nearest_neighbors=10, fields="content_vector")
+    vector_query = VectorizedQuery(vector=vector, k_nearest_neighbors=3, fields="content_vector")
     
     if use_rerank:
         results = await search_client.search(
@@ -58,19 +71,19 @@ async def buscar_con_rerank(pregunta: Annotated[str, Field(description="Busca en
 # --- 1. AGENTE SIN RERANK (Búsqueda Híbrida Estándar) ---
 agente_sin_rerank = chat_client.as_agent(
     name="Agent_No_Rerank",
-    instructions="Eres un experto. Responde ÚNICAMENTE en base a la evidencia proporcionada. Usa tu herramienta de búsqueda.",
+    instructions=GROUNDING_INSTRUCTIONS,
     tools=[buscar_sin_rerank]
 )
 
 # --- 2. AGENTE CON RERANK (Semantic Ranker) ---
 agente_con_rerank = chat_client.as_agent(
     name="Agent_Rerank",
-    instructions="Eres un experto. Responde ÚNICAMENTE en base a la evidencia proporcionada. Usa tu herramienta de búsqueda.",
+    instructions=GROUNDING_INSTRUCTIONS,
     tools=[buscar_con_rerank]
 )
 
 async def main():
-    pregunta = "¿Qué instrumento de Curiosity utiliza un láser para vaporizar rocas?"
+    pregunta = "¿Qué misión busca señales de vida antigua en el cráter Jezero?"
     
     print("\n" + "="*80)
     print(" PREGUNTA: ", pregunta)

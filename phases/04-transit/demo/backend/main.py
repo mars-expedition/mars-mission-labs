@@ -59,6 +59,31 @@ def _coerce_float(value):
         return None
 
 
+def _normalize_page_value(value):
+    if value is None:
+        return None
+
+    if isinstance(value, list):
+        # A projected ordinalPositions array is not a real page/chunk location.
+        # Hide it instead of showing a misleading "Chunk 1" on every card.
+        return None
+
+    if isinstance(value, (int, float)):
+        return str(int(value))
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    if "," in text:
+        return None
+
+    if text.isdigit():
+        return text
+
+    return text
+
+
 def _extract_json_object(text: str) -> dict | None:
     """Best-effort parser for agent JSON output that may be wrapped in prose or fences."""
     if not text:
@@ -98,7 +123,7 @@ def _normalize_agent_chunks(raw_chunks) -> list[dict]:
         metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
         source = metadata.get("source") or metadata.get("source_url") or raw.get("source") or raw.get("source_url")
         title = metadata.get("title") or raw.get("title") or "Documento recuperado de la base de datos"
-        page = metadata.get("page") or metadata.get("page_number") or raw.get("page") or raw.get("page_number")
+        page = _normalize_page_value(metadata.get("page") or metadata.get("page_number") or raw.get("page") or raw.get("page_number"))
         content = raw.get("content") or raw.get("page_content") or raw.get("text") or raw.get("snippet") or ""
         score = _coerce_float(
             _first_present(
@@ -135,7 +160,7 @@ def _chunk_match_key(chunk: dict) -> tuple[str, str, str]:
     metadata = chunk.get("metadata") if isinstance(chunk.get("metadata"), dict) else {}
     title = str(metadata.get("title") or chunk.get("title") or "").strip().lower()
     source = str(metadata.get("source") or metadata.get("source_url") or chunk.get("source") or chunk.get("source_url") or "").strip().lower()
-    page = str(metadata.get("page") or metadata.get("page_number") or chunk.get("page") or chunk.get("page_number") or "").strip().lower()
+    page = str(_normalize_page_value(metadata.get("page") or metadata.get("page_number") or chunk.get("page") or chunk.get("page_number")) or "").strip().lower()
     return title, source, page
 
 
@@ -250,7 +275,7 @@ def _retrieve_scored_chunks(query: str, top_k: int = 3) -> list[dict]:
                 "metadata": {
                     "title": item.get("title"),
                     "source": item.get("source_url"),
-                    "page": item.get("page_number"),
+                    "page": _normalize_page_value(item.get("page_number")),
                 },
             })
         return chunks
@@ -387,7 +412,7 @@ def get_documents():
                 "metadata": {
                     "title": r.get("title"),
                     "source": r.get("source_url"),
-                    "page": r.get("page_number")
+                    "page": _normalize_page_value(r.get("page_number"))
                 }
             })
         return {"documents": docs}
@@ -454,7 +479,7 @@ async def ask_local_agent(req: QueryRequest):
                 "metadata": {
                     "title": item.get("title"),
                     "source": item.get("source_url"),
-                    "page": item.get("page_number")
+                    "page": _normalize_page_value(item.get("page_number"))
                 }
             })
             passages.append(f"Documento: {item.get('title')}\nContenido: {item.get('content')}")
@@ -469,7 +494,8 @@ async def ask_local_agent(req: QueryRequest):
                 "system",
                 [
                     "Eres un asistente RAG experto en misiones a Marte. "
-                    "Responde de forma clara y precisa en base al siguiente contexto provisto:\n\n"
+                    "Responde de forma clara y precisa usando únicamente el contexto provisto. "
+                    "Si el contexto no contiene evidencia explícita suficiente, dilo y no uses conocimiento externo:\n\n"
                     + context_str
                 ],
             ),

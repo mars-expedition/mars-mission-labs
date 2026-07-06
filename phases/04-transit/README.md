@@ -17,10 +17,10 @@ RAG no entrena de nuevo al modelo. En su lugar, recupera informacion relevante d
 
 ```text
 PDFs NASA
-  -> extraccion de texto
-  -> chunks con metadata
-  -> embeddings
-  -> indice vectorial en Azure AI Search
+  -> Azure Blob Storage
+  -> Azure AI Search Indexer
+  -> Text Split Skill + AzureOpenAIEmbeddingSkill
+  -> indice vectorial con chunks proyectados
   -> recuperacion hibrida / rerank
   -> agente local o agente nativo Foundry
   -> respuesta citada en la UI
@@ -33,6 +33,7 @@ PDFs NASA
 - `requirements.txt`: dependencias Python para la fase completa.
 - `.env.example`: plantilla de variables de entorno para Azure OpenAI, Azure AI Search y Foundry.
 - `tutorial/`: scripts secuenciales para construir el indice y probar agentes RAG desde cero.
+- `clean/`: scripts secuenciales para limpiar recursos derivados y repetir la demo desde cero.
 - `demo/backend/`: API FastAPI usada por la demo web.
 - `demo/app/`: frontend Next.js para explorar documentos, chatear y comparar rerank.
 - `data/`: PDFs de referencia para el escenario de misiones a Marte.
@@ -51,6 +52,8 @@ Roles recomendados para desarrollo local:
 
 - En Azure OpenAI / Foundry Models: `Cognitive Services OpenAI User`.
 - En Azure AI Search: `Search Service Contributor`, `Search Index Data Contributor` y `Search Index Data Reader`.
+- En Storage Account: `Storage Blob Data Contributor` para tu usuario y `Storage Blob Data Reader` para la identidad administrada de Azure AI Search si usas `ResourceId`.
+- En Azure AI Foundry: el proyecto debe tener Azure AI Search agregado en `Recursos conectados` para que el agente nativo pueda usar el indice.
 
 ## Configuracion
 
@@ -95,6 +98,37 @@ python tutorial/04_agent_with_rag.py
 python tutorial/05_agent_comparison.py
 python tutorial/06_native_foundry_agent.py
 ```
+
+### Conectar Azure AI Search al proyecto Foundry
+
+El script `tutorial/06_native_foundry_agent.py` crea una version del agente nativo de Azure AI Foundry. Antes de ejecutarlo, entra al detalle del proyecto en Azure AI Foundry y registra el Search service como recurso conectado:
+
+1. Abre Azure AI Foundry y entra al proyecto de `FOUNDRY_PROJECT_ENDPOINT`.
+2. Haz clic en `Abrir proyecto` si estas en la vista del recurso.
+3. En el detalle del proyecto, abre `Recursos conectados`.
+4. Selecciona `Agregar conexion`.
+5. Elige `Azure AI Search` o `CognitiveSearch`.
+6. Selecciona el Search service donde vive `AZURE_SEARCH_INDEX`.
+7. Guarda la conexion.
+
+Si tienes varias conexiones, fija la que usara el agente en `.env`:
+
+```dotenv
+FOUNDRY_SEARCH_CONNECTION_NAME=<nombre-de-la-conexion>
+# o
+FOUNDRY_SEARCH_CONNECTION_ID=<id-completo-de-la-conexion>
+```
+
+### Limpiar la demo y volver a cero
+
+Ejecuta desde `phases/04-transit`:
+
+```powershell
+python clean/00_show_cleanup_plan.py
+python clean/99_clean_all.py --yes
+```
+
+La limpieza elimina indice, indexer, skillset, data source, blobs de la demo, versiones del agente Foundry y datos locales. Conserva los recursos base: Azure OpenAI/Foundry deployments, Azure AI Search service, Storage Account y Azure AI Foundry Project.
 
 ### Levantar backend
 
@@ -149,4 +183,5 @@ Abre `http://localhost:3000`.
 - Empieza con una pregunta simple y muestra los chunks recuperados antes de mostrar la respuesta.
 - Luego usa una pregunta sin palabras exactas del documento para explicar embeddings.
 - Despues compara sin rerank vs. con rerank en el playground.
+- Para mostrar el impacto del rerank, usa: `Que mision busca senales de vida antigua en el crater Jezero?`. La demo usa grounding estricto: sin rerank se mezclan fragmentos de Phoenix/Curiosity y la respuesta debe reconocer falta de evidencia; con Semantic Reranker suben los fragmentos de Mars 2020 Perseverance.
 - Cierra con una pregunta fuera del corpus para demostrar grounding y limites.

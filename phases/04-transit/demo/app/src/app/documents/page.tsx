@@ -12,6 +12,21 @@ type DocumentChunk = {
   };
 };
 
+function formatPage(value: DocumentChunk['metadata']['page']) {
+  if (value === undefined || value === null || value === '') return '';
+  if (Array.isArray(value)) {
+    return '';
+  }
+
+  const text = String(value).trim();
+  if (!text) return '';
+  if (text.includes(',')) {
+    return '';
+  }
+
+  return text;
+}
+
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentChunk[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +59,10 @@ export default function DocumentsPage() {
       {error && <div style={{ background: 'rgba(255,0,0,0.1)', padding: '1rem', borderRadius: '8px', color: '#ff7675' }}>{error}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
-        {documents.map((doc, i) => (
+        {documents.map((doc, i) => {
+          const location = formatPage(doc.metadata?.page);
+
+          return (
           <div key={i} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem' }}>
               <span 
@@ -76,14 +94,18 @@ export default function DocumentsPage() {
               &quot;{doc.content}&quot;
             </p>
             
-            <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', marginTop: 'auto' }}>
-              <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                <span><strong>Página:</strong> {doc.metadata?.page || 'N/A'}</span>
-                <span><strong>Línea:</strong> {doc.metadata?.line || 'N/A'}</span>
+            {location && (
+              <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', marginTop: 'auto' }}>
+                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-secondary)', minWidth: 0 }}>
+                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <strong>Ubicación:</strong> {location}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

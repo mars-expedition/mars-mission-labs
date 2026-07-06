@@ -19,7 +19,7 @@ type AskResult = {
 };
 
 export default function PlaygroundPage() {
-  const [query, setQuery] = useState('¿Cual fue el presupuesto de la mision a Marte?');
+  const [query, setQuery] = useState('¿Qué misión busca señales de vida antigua en el cráter Jezero?');
   const [loading, setLoading] = useState(false);
   const [resultSimple, setResultSimple] = useState<AskResult | null>(null);
   const [resultRerank, setResultRerank] = useState<AskResult | null>(null);
