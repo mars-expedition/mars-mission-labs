@@ -12,7 +12,7 @@ type DocumentChunk = {
   };
 };
 
-function formatPage(value: DocumentChunk['metadata']['page']) {
+function formatPage(value: NonNullable<DocumentChunk['metadata']>['page']) {
   if (value === undefined || value === null || value === '') return '';
   if (Array.isArray(value)) {
     return '';
