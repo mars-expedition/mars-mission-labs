@@ -108,15 +108,3 @@ FOUNDRY_SEARCH_CONNECTION_NAME=<nombre-de-la-conexion>
 # o
 FOUNDRY_SEARCH_CONNECTION_ID=<id-completo-de-la-conexion>
 ```
-
-## Buenas practicas para la demo
-
-- Ejecuta primero una pregunta cuya respuesta este claramente en los documentos.
-- Muestra los fragmentos recuperados antes de revelar la respuesta final.
-- Para comparar rerank, usa `05_agent_comparison.py` o el playground con: `Que mision busca senales de vida antigua en el crater Jezero?`. El prompt usa grounding estricto: sin rerank deberia reconocer falta de evidencia suficiente; con rerank prioriza Mars 2020 Perseverance.
-- Usa una pregunta fuera del corpus para demostrar que el agente no debe inventar.
-- Si cambias el modelo de embeddings, revisa `AZURE_OPENAI_EMBEDDING_MODEL_NAME`, `EMBEDDING_DIMENSIONS` y recrea el indice.
-- Si cambias `AZURE_SEARCH_TEXT_SPLIT_MAX_LENGTH` u `OVERLAP`, vuelve a ejecutar el indexer.
-- Con `AZURE_SEARCH_API_VERSION=2025-09-01`, el chunking por caracteres usa el default del Text Split Skill. No se envia la propiedad `unit`; el modo `azureOpenAITokens` requiere una API preview.
-- `04_agent_with_rag.py` y `05_agent_comparison.py` usan Microsoft Agent Framework con Responses API. Deja `AZURE_OPENAI_RESPONSES_API_VERSION` vacio salvo que necesites forzar una version compatible con tu endpoint.
-- No subas `.env` ni archivos con llaves o endpoints privados.

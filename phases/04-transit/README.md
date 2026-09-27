@@ -156,32 +156,3 @@ npm run dev
 ```
 
 Abre `http://localhost:3000`.
-
-## Tecnicas RAG que se pueden explicar
-
-- **Chunking**: division del documento en fragmentos manejables con solapamiento.
-- **Embeddings**: representacion vectorial para similitud semantica.
-- **Metadata**: titulo, pagina, fuente, categoria y mision para filtrar y citar.
-- **Busqueda hibrida**: combina texto clave (BM25) con similitud vectorial.
-- **Semantic Reranker**: reordena los candidatos con un modelo de ranking semantico.
-- **Tool calling**: el agente usa la busqueda como herramienta antes de responder.
-- **Grounded prompting**: instrucciones para responder solo con evidencia recuperada.
-
-## Buenas practicas y mejoras sugeridas
-
-- Mantener un `.env.example` actualizado y no versionar `.env`.
-- Usar nombres de deployments explicitos en la documentacion y la UI.
-- Evitar que el frontend tenga `http://localhost:8000` hardcodeado; moverlo a `NEXT_PUBLIC_API_BASE_URL`.
-- Agregar una evaluacion ligera con preguntas esperadas, citas esperadas y casos fuera del corpus.
-- Registrar query, chunks recuperados, scores, uso de rerank y latencia por endpoint.
-- Mostrar claramente cuando la respuesta no tiene evidencia suficiente.
-- Separar configuracion de desarrollo y produccion, especialmente CORS e identidad.
-- En produccion, usar Managed Identity, filtros por permisos, sanitizacion de documentos y defensa contra prompt injection.
-
-## Recomendaciones para presentar
-
-- Empieza con una pregunta simple y muestra los chunks recuperados antes de mostrar la respuesta.
-- Luego usa una pregunta sin palabras exactas del documento para explicar embeddings.
-- Despues compara sin rerank vs. con rerank en el playground.
-- Para mostrar el impacto del rerank, usa: `Que mision busca senales de vida antigua en el crater Jezero?`. La demo usa grounding estricto: sin rerank se mezclan fragmentos de Phoenix/Curiosity y la respuesta debe reconocer falta de evidencia; con Semantic Reranker suben los fragmentos de Mars 2020 Perseverance.
-- Cierra con una pregunta fuera del corpus para demostrar grounding y limites.
