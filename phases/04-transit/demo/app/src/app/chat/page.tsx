@@ -86,6 +86,29 @@ const scoreLabel = (scoreType?: string) => {
   return 'Score';
 };
 
+const SUGGESTED_QUERIES = [
+  {
+    tag: 'Caso 1: RAG Conceptual',
+    label: '🔬 Instrumentos y vida en rocas',
+    query: '¿Qué instrumentos lleva Perseverance para detectar rastros de vida en las rocas?',
+  },
+  {
+    tag: 'Intro',
+    label: '🚀 ¿Qué es el Perseverance?',
+    query: '¿Qué es el Perseverance?',
+  },
+  {
+    tag: 'Caso 2: Cráter Jezero',
+    label: '🪐 Misión en cráter Jezero',
+    query: '¿Qué misión busca señales de vida antigua en el cráter Jezero?',
+  },
+  {
+    tag: 'Caso 3: Fuera de Dominio',
+    label: '🍕 Menú de la NASA (Límites)',
+    query: '¿Cuál es el menú del comedor de la NASA?',
+  },
+];
+
 export default function ChatPage() {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -102,9 +125,9 @@ export default function ChatPage() {
     }));
   };
 
-  const handleSend = async () => {
-    const userMsg = query.trim();
-    if (!userMsg) return;
+  const handleSend = async (overrideQuery?: string) => {
+    const userMsg = (typeof overrideQuery === 'string' ? overrideQuery : query).trim();
+    if (!userMsg || loading) return;
 
     const assistantId = createId('assistant');
     setQuery('');
@@ -241,8 +264,60 @@ export default function ChatPage() {
         
         <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {messages.length === 0 && (
-            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '2rem' }}>
-              Escribe una pregunta sobre la misión a Marte para comenzar.
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1.25rem', textAlign: 'center', padding: '1rem' }}>
+              <div style={{ fontSize: '2.5rem' }}>🪐</div>
+              <div>
+                <h3 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: '0.4rem' }}>Asistente RAG con Azure AI Foundry</h3>
+                <p style={{ color: 'var(--text-secondary)', maxWidth: '520px', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                  Haz clic en una de las preguntas de prueba preparadas para la demo o escribe una consulta personalizada:
+                </p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', width: '100%', maxWidth: '640px', marginTop: '0.5rem' }}>
+                {SUGGESTED_QUERIES.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleSend(item.query)}
+                    className="glass-panel"
+                    style={{
+                      padding: '0.85rem 1rem',
+                      textAlign: 'left',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      border: '1px solid var(--border-glass)',
+                      background: 'rgba(255,255,255,0.03)',
+                      color: 'var(--text-primary)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                      transition: 'all 0.2s ease',
+                      outline: 'none',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!loading) {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = 'var(--secondary-accent)';
+                        e.currentTarget.style.background = 'rgba(0, 210, 211, 0.08)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.borderColor = 'var(--border-glass)';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                    }}
+                  >
+                    <span style={{ fontSize: '0.68rem', color: 'var(--secondary-accent)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                      {item.tag}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {item.label}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                      {item.query}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {messages.map((m) => {
@@ -307,7 +382,55 @@ export default function ChatPage() {
           )}
         </div>
 
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-glass)' }}>
+        <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border-glass)', background: 'rgba(15, 17, 26, 0.5)' }}>
+          {/* Burbujas de acceso rápido para la demo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--secondary-accent)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              💡 Demo:
+            </span>
+            {SUGGESTED_QUERIES.map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                disabled={loading}
+                onClick={() => handleSend(item.query)}
+                style={{
+                  background: 'rgba(108, 92, 231, 0.15)',
+                  border: '1px solid rgba(108, 92, 231, 0.35)',
+                  color: '#e4e7eb',
+                  borderRadius: '20px',
+                  padding: '5px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 500,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  opacity: loading ? 0.6 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  outline: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.background = 'rgba(108, 92, 231, 0.35)';
+                    e.currentTarget.style.borderColor = 'var(--secondary-accent)';
+                    e.currentTarget.style.color = '#ffffff';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(108, 92, 231, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(108, 92, 231, 0.35)';
+                  e.currentTarget.style.color = '#e4e7eb';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+                title={item.query}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
           <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} style={{ display: 'flex', gap: '1rem' }}>
             <input 
               type="text" 
