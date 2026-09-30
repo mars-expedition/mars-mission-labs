@@ -29,7 +29,6 @@ PDFs NASA
 ## Contenido de la carpeta
 
 - `demo_rag_azure_agent_framework.ipynb`: notebook narrativo para presentar el pipeline completo.
-- `demo_rag.py`: version exportada del notebook, util como referencia de codigo.
 - `requirements.txt`: dependencias Python para la fase completa.
 - `.env.example`: plantilla de variables de entorno para Azure OpenAI, Azure AI Search y Foundry.
 - `tutorial/`: scripts secuenciales para construir el indice y probar agentes RAG desde cero.
