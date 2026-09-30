@@ -2,7 +2,7 @@
 
 Esta carpeta contiene scripts secuenciales para construir un flujo RAG completo con documentos de misiones a Marte, Azure AI Search y Microsoft Agent Framework.
 
-Ejecuta los comandos desde `phases/04-transit` para que los archivos se generen en la carpeta `data/` de la fase y para reutilizar el `.env` comun.
+Ejecuta los comandos desde `phases/03-orbit` para que los archivos se generen en la carpeta `data/` de la fase y para reutilizar el `.env` comun.
 
 ## Que vas a aprender
 
@@ -18,7 +18,7 @@ Ejecuta los comandos desde `phases/04-transit` para que los archivos se generen 
 
 ## Preparacion
 
-Desde `phases/04-transit`:
+Desde `phases/03-orbit`:
 
 ```powershell
 python -m venv .venv

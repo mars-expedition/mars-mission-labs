@@ -18,7 +18,7 @@ El frontend consume el backend FastAPI en `http://localhost:8000`.
 
 ## Ejecucion local
 
-Desde `phases/04-transit/demo/app`:
+Desde `phases/03-orbit/demo/app`:
 
 ```powershell
 npm install

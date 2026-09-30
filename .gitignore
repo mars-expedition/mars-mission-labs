@@ -29,8 +29,8 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Datos generados o descargados para demos RAG
-phases/04-transit/data/
-phases/04-transit/tutorial/data/
+phases/03-orbit/data/
+phases/03-orbit/tutorial/data/
 
 # Sistema operativo
 .DS_Store

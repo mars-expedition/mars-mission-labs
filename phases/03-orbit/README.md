@@ -1,4 +1,4 @@
-# Fase 04 - Transit: RAG con Azure AI Foundry
+# Fase 03 - Orbit: RAG con Azure AI Foundry
 
 Esta fase presenta los beneficios de **RAG (Retrieval-Augmented Generation)** mediante una demo con documentos de misiones a Marte. El objetivo es que una persona pueda ver, paso a paso, como una pregunta se convierte en busqueda, evidencia recuperada y respuesta fundamentada con fuentes.
 
@@ -60,7 +60,7 @@ Roles recomendados para desarrollo local:
 Desde esta carpeta:
 
 ```powershell
-cd phases/04-transit
+cd phases/03-orbit
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -87,7 +87,7 @@ az account set --subscription "<SUBSCRIPTION_ID_O_NOMBRE>"
 
 ### Reconstruir el indice desde scripts
 
-Ejecuta desde `phases/04-transit` para que los datos queden en `data/` y se use el `.env` de la fase:
+Ejecuta desde `phases/03-orbit` para que los datos queden en `data/` y se use el `.env` de la fase:
 
 ```powershell
 pip install -r tutorial/requirements.txt
@@ -121,7 +121,7 @@ FOUNDRY_SEARCH_CONNECTION_ID=<id-completo-de-la-conexion>
 
 ### Limpiar la demo y volver a cero
 
-Ejecuta desde `phases/04-transit`:
+Ejecuta desde `phases/03-orbit`:
 
 ```powershell
 python clean/00_show_cleanup_plan.py
@@ -133,7 +133,7 @@ La limpieza elimina indice, indexer, skillset, data source, blobs de la demo, ve
 ### Levantar backend
 
 ```powershell
-cd phases/04-transit
+cd phases/03-orbit
 pip install -r demo/backend/requirements.txt
 uvicorn demo.backend.main:app --reload --port 8000
 ```
@@ -150,7 +150,7 @@ Endpoints principales:
 ### Levantar frontend
 
 ```powershell
-cd phases/04-transit/demo/app
+cd phases/03-orbit/demo/app
 npm install
 npm run dev
 ```

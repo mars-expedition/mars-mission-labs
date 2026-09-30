@@ -2,7 +2,7 @@
 
 Estos scripts dejan la fase lista para ejecutar el tutorial como si fuera desde cero.
 
-Ejecutalos desde `phases/04-transit` con el mismo `.env` usado por el tutorial.
+Ejecutalos desde `phases/03-orbit` con el mismo `.env` usado por el tutorial.
 
 ## Que se elimina
 
