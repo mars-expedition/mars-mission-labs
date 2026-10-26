@@ -1,0 +1,9 @@
+[project]
+name = "mars-mission-04-transit"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "agent-framework-core==1.20.0",
+    "agent-framework-openai==1.15.0",
+    "python-dotenv>=1.2.4",
+]
