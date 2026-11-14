@@ -1,0 +1,21 @@
+[project]
+name = "mars-mission-05-approach"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "agent-framework-core==1.26.0",
+    "agent-framework-openai==1.18.2",
+    "agent-framework-redis==1.0.0b261112",
+    "agent-framework-mem0==1.0.0b261112",
+    "mem0ai==2.2.1",
+    "python-dotenv>=1.2.4",
+    # Sin este tope, "prerelease = allow" deja que uv resuelva un httpx 1.0 preliminar
+    # que rompe mem0 (AsyncClient no existe ahí todavía).
+    "httpx<1.0",
+    # mem0's azure_openai llm/embedder lo importan siempre, pero mem0ai solo lo declara
+    # bajo su extra "vector-stores" (junto a decenas de paquetes que no usamos).
+    "azure-identity",
+]
+
+[tool.uv]
+prerelease = "allow"

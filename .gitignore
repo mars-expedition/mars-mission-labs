@@ -37,3 +37,7 @@ phases/03-orbit/tutorial/data/
 Thumbs.db
 
 .idea
+.sessions/*
+*/.sessions/*
+.vscode
+*mem0_db*
