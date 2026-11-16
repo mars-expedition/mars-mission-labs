@@ -1,0 +1,2 @@
+{"response": "Guiado nominal: trayectoria dentro de parámetros, sin correcciones pendientes.", "ground_truth": "Computadora de guiado: trayectoria nominal, sin correcciones pendientes."}
+{"response": "No tengo ese dato en el piloto automático.", "ground_truth": "Secuenciador de eventos: próximo evento en T-45s, sin bloqueos."}
