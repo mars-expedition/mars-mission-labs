@@ -14,19 +14,20 @@ INSTRUCTIONS = (
     "Si no tienes un dato, dilo; no lo inventes."
 )
 
-TELEMETRY = {
-    "propulsion": "Tanques al 82%, motores principales nominales",
-    "energia": "Baterías al 91%, paneles solares generando 12 kW",
-    "soporte_vital": "O2 21%, CO2 400 ppm, presión de cabina nominal",
+# Durante la entrada nadie en la Tierra puede intervenir: estos subsistemas deciden solos.
+AUTOPILOT_STATUS = {
+    "guiado": "Computadora de guiado: trayectoria nominal, desviación de 0.3°, sin correcciones pendientes",
+    "secuenciador": "Secuenciador de eventos: próximo evento en T-45s (despliegue de paracaídas), sin bloqueos",
+    "monitor_aborto": "Monitor de aborto: todos los parámetros dentro de límites, sin recomendación de abortar",
 }
 
 
 @tool
-def get_telemetry(
-    system: Annotated[str, "Sistema a consultar: propulsion, energia o soporte_vital"],
+def get_autopilot_status(
+    subsystem: Annotated[str, "Subsistema autónomo a consultar: guiado, secuenciador o monitor_aborto"],
 ) -> str:
-    """Devuelve la telemetría actual de un sistema de la nave."""
-    return TELEMETRY.get(system, "Sistema desconocido")  # dato simulado
+    """Devuelve el estado de un subsistema autónomo de la nave durante la entrada atmosférica."""
+    return AUTOPILOT_STATUS.get(subsystem, "Subsistema desconocido")  # dato simulado
 
 
 def create_mission_control() -> Agent:
@@ -39,5 +40,5 @@ def create_mission_control() -> Agent:
         client=client,
         name="MissionControl",
         instructions=INSTRUCTIONS,
-        tools=[get_telemetry],
+        tools=[get_autopilot_status],
     )

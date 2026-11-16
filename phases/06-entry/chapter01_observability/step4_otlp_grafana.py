@@ -8,15 +8,15 @@ from mission_control import create_mission_control
 
 
 async def main() -> None:
-    configure_otel_providers()  # con OTEL_EXPORTER_OTLP_ENDPOINT en el .env, también exporta por OTLP
+    configure_otel_providers()  # con OTEL_EXPORTER_OTLP_TRACES_ENDPOINT en el .env, también exporta por OTLP
 
     with get_tracer().start_as_current_span(
-        "Scenario: Telemetria via Aspire", kind=SpanKind.CLIENT
+        "Scenario: Guiado via Grafana Cloud", kind=SpanKind.CLIENT
     ) as span:
         print(f"Trace ID: {format_trace_id(span.get_span_context().trace_id)}")
 
         mission_control = create_mission_control()
-        response = await mission_control.run("¿Cómo está la propulsión? Consulta la telemetría.")
+        response = await mission_control.run("¿Cómo está el guiado durante la entrada? Consulta el piloto automático.")
         print(f"CONTROL: {response.text}")
 
 

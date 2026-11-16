@@ -1,2 +1,2 @@
-{"response": "Propulsión nominal: tanques al 82%, motores principales en estado nominal.", "ground_truth": "Tanques al 82%, motores principales nominales."}
-{"response": "No tengo ese dato en la telemetría actual.", "ground_truth": "Baterías al 91%, paneles solares generando 12 kW."}
+{"response": "Guiado nominal: trayectoria dentro de parámetros, sin correcciones pendientes.", "ground_truth": "Computadora de guiado: trayectoria nominal, sin correcciones pendientes."}
+{"response": "No tengo ese dato en el piloto automático.", "ground_truth": "Secuenciador de eventos: próximo evento en T-45s, sin bloqueos."}

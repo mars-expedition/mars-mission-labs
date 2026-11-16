@@ -13,7 +13,7 @@ MODEL_CONFIG: AzureOpenAIModelConfiguration = {
 
 
 async def main() -> None:
-    query = "¿Cómo está la propulsión? Consulta la telemetría."
+    query = "¿Cómo está el guiado durante la entrada? Consulta el piloto automático."
 
     mission_control = create_mission_control()
     response = await mission_control.run(query)

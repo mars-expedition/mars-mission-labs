@@ -12,12 +12,12 @@ async def main() -> None:
     configure_otel_providers(enable_sensitive_data=True, enable_console_exporters=True)
 
     with get_tracer().start_as_current_span(
-        "Scenario: Telemetria con datos sensibles", kind=SpanKind.CLIENT
+        "Scenario: Guiado con datos sensibles", kind=SpanKind.CLIENT
     ) as span:
         print(f"Trace ID: {format_trace_id(span.get_span_context().trace_id)}")
 
         mission_control = create_mission_control()
-        response = await mission_control.run("¿Cómo está la propulsión? Consulta la telemetría.")
+        response = await mission_control.run("¿Cómo está el guiado durante la entrada? Consulta el piloto automático.")
         print(f"CONTROL: {response.text}")
 
 

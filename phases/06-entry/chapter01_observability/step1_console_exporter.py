@@ -11,12 +11,12 @@ async def main() -> None:
     configure_otel_providers()  # lee ENABLE_CONSOLE_EXPORTERS y OTEL_EXPORTER_OTLP_* del .env
 
     with get_tracer().start_as_current_span(
-        "Scenario: Telemetria de propulsion", kind=SpanKind.CLIENT
+        "Scenario: Guiado durante la entrada", kind=SpanKind.CLIENT
     ) as span:
         print(f"Trace ID: {format_trace_id(span.get_span_context().trace_id)}")
 
         mission_control = create_mission_control()
-        response = await mission_control.run("¿Cómo está la propulsión? Consulta la telemetría.")
+        response = await mission_control.run("¿Cómo está el guiado durante la entrada? Consulta el piloto automático.")
         print(f"CONTROL: {response.text}")
 
 
